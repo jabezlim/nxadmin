@@ -1,4 +1,5 @@
-const { db } = require('@vercel/postgres');
+const { db, createClient } = require('@vercel/postgres');
+const { Client } = require('pg');
 const {
   invoices,
   customers,
@@ -160,8 +161,47 @@ async function seedRevenue(client) {
   }
 }
 
+function sqlTemplate(strings, ...values) {
+  var _a, _b;
+  // if (!isTemplateStringsArray(strings) || !Array.isArray(values)) {
+    //throw new VercelPostgresError(
+    //  "incorrect_tagged_template_call",
+    //  "It looks like you tried to call `sql` as a function. Make sure to use it as a tagged template.\n	Example: sql`SELECT * FROM users`, not sql('SELECT * FROM users')"
+    //);
+  //}
+  let result = (_a = strings[0]) != null ? _a : "";
+  for (let i = 1; i < strings.length; i++) {
+    result += `$${i}${(_b = strings[i]) != null ? _b : ""}`;
+  }
+  return [result, values];
+}
+
+var VercelClient = class extends Client {
+  /**
+   * A template literal tag providing safe, easy to use SQL parameterization.
+   * Parameters are substituted using the underlying Postgres database, and so must follow
+   * the rules of Postgres parameterization.
+   * @example
+   * ```ts
+   * const pool = createClient();
+   * const userId = 123;
+   * await client.connect();
+   * const result = await pool.sql`SELECT * FROM users WHERE id = ${userId}`;
+   * // Equivalent to: await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+   * await client.end();
+   * ```
+   * @returns A promise that resolves to the query result.
+   */
+  async sql(strings, ...values) {
+    const [query, params] = sqlTemplate(strings, ...values);
+    return this.query(query, params);
+  }
+};
+
 async function main() {
-  const client = await db.connect();
+  //const client = await db.connect();
+  const client = new VercelClient();
+  await client.connect();
 
   await seedUsers(client);
   await seedCustomers(client);
